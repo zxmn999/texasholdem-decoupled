@@ -168,25 +168,53 @@ def load_engine(target_dir: str):
         )
 
 
-def verify_diff(target_dir: str, baseline_json: str) -> int:
-    """Verifies that target_dir produces 100% 0-Diff results against baseline_json."""
+def verify_diff_detailed(target_dir: str, baseline_json: str) -> dict:
+    """
+    Verifies that target_dir produces 100% 0-Diff results against baseline_json.
+    Strict Fail-Closed Preconditions:
+    - Baseline file must exist and be valid JSON.
+    - Baseline hands list must be present and contain EXACTLY 500 hands.
+    - Current simulation must produce EXACTLY 500 hands.
+    - Total data points must be >= 50,000 and match baseline data points exactly.
+    - Bitwise per-hand deep equality assertion with sequential hand_id check.
+    """
     print("=" * 70)
-    print("🚀 0-DIFF DYNAMIC VERIFICATION HARNESS")
+    print("[*] 0-DIFF DYNAMIC VERIFICATION HARNESS")
     print(f"[*] Target Codebase  : {target_dir}")
     print(f"[*] Baseline Dataset : {baseline_json}")
     print("=" * 70)
 
     if not os.path.exists(baseline_json):
-        print(f"❌ Error: Baseline dataset not found at {baseline_json}")
-        return 1
+        err = f"Baseline dataset not found at {baseline_json}"
+        print(f"[ERROR] {err}")
+        return {"success": False, "exit_code": 1, "msg": err, "data_points": 0}
 
-    with open(baseline_json, "r", encoding="utf-8") as f:
-        baseline_data = json.load(f)
+    try:
+        with open(baseline_json, "r", encoding="utf-8") as f:
+            baseline_data = json.load(f)
+    except Exception as e:
+        err = f"Failed to parse baseline JSON: {e}"
+        print(f"[ERROR] {err}")
+        return {"success": False, "exit_code": 1, "msg": err, "data_points": 0}
+
+    if not isinstance(baseline_data, dict):
+        err = "Baseline dataset root must be a JSON object"
+        print(f"[ERROR] {err}")
+        return {"success": False, "exit_code": 1, "msg": err, "data_points": 0}
 
     baseline_hands = baseline_data.get("hands", [])
-    expected_count = len(baseline_hands)
-    print(f"[*] Loaded baseline with {expected_count} hands.")
+    if not isinstance(baseline_hands, list):
+        err = "Baseline dataset 'hands' must be a list"
+        print(f"[ERROR] {err}")
+        return {"success": False, "exit_code": 1, "msg": err, "data_points": 0}
 
+    # Strict invariant 1: Exactly 500 hands requirement (rejects empty or partial datasets)
+    if len(baseline_hands) != 500:
+        err = f"Baseline dataset must contain exactly 500 hands! Found {len(baseline_hands)} hands."
+        print(f"[ERROR] {err}")
+        return {"success": False, "exit_code": 1, "msg": err, "data_points": 0}
+
+    print(f"[*] Loaded baseline with {len(baseline_hands)} hands.")
     print("[*] Locking entropy generator: random.seed(42)...")
     random.seed(42)
 
@@ -206,35 +234,73 @@ def verify_diff(target_dir: str, baseline_json: str) -> int:
     current_hands.extend(execute_suite(TexasHoldEm, random_agent, 6, 200, 301, "full_ring"))
 
     duration = time.time() - t0
+
+    # Strict invariant 2: Current execution must also produce exactly 500 hands
+    if len(current_hands) != 500:
+        err = f"Current simulation must produce exactly 500 hands! Got {len(current_hands)} hands."
+        print(f"[ERROR] {err}")
+        return {"success": False, "exit_code": 1, "msg": err, "data_points": 0}
+
     current_hands = json.loads(json.dumps(current_hands))
     total_data_points = count_data_points({"hands": current_hands})
+    baseline_data_points = count_data_points({"hands": baseline_hands})
+
+    # Strict invariant 3: Data points count integrity
+    if total_data_points < 50000:
+        err = f"Total state points too low ({total_data_points} < 50,000), aborting."
+        print(f"[ERROR] {err}")
+        return {"success": False, "exit_code": 1, "msg": err, "data_points": total_data_points}
+
+    if total_data_points != baseline_data_points:
+        err = f"Data point count mismatch: current={total_data_points}, baseline={baseline_data_points}"
+        print(f"[ERROR] {err}")
+        return {"success": False, "exit_code": 1, "msg": err, "data_points": total_data_points}
 
     print(f"\n[*] Comparing {len(current_hands)} hands against baseline ({total_data_points:,} data points)...")
 
+    # Strict invariant 4: Deep per-hand bitwise equality
     mismatches = []
-    for idx, (b_hand, c_hand) in enumerate(zip(baseline_hands, current_hands)):
-        if b_hand != c_hand:
-            mismatches.append((idx + 1, b_hand, c_hand))
-            if len(mismatches) >= 5:
-                break
+    for idx in range(500):
+        b_hand = baseline_hands[idx]
+        c_hand = current_hands[idx]
+        if b_hand.get("hand_id") != idx + 1 or c_hand.get("hand_id") != idx + 1:
+            mismatches.append((idx + 1, "hand_id sequence mismatch"))
+        elif b_hand != c_hand:
+            mismatches.append((idx + 1, "state divergence"))
+        if len(mismatches) >= 5:
+            break
 
     if mismatches:
         print("\n" + "!" * 70)
-        print(f"❌ 0-DIFF VERIFICATION FAILED! {len(mismatches)} hand discrepancies detected:")
-        for hid, b_h, c_h in mismatches:
-            print(f"   • Hand #{hid} mismatch!")
+        print(f"[FAIL] 0-DIFF VERIFICATION FAILED! {len(mismatches)} hand discrepancies detected:")
+        for m in mismatches:
+            print(f"   [-] Hand #{m[0]}: {m[1]}")
         print("!" * 70)
-        return 1
+        return {"success": False, "exit_code": 1, "msg": f"{len(mismatches)} hand discrepancies detected", "data_points": total_data_points}
 
     print("\n" + "=" * 70)
-    print("✅ 0-DIFF DYNAMIC VERIFICATION: 100% MATCH! (Diff == 0.0)")
+    print("[PASS] 0-DIFF DYNAMIC VERIFICATION: 100% MATCH! (Diff == 0.0)")
     print("=" * 70)
-    print(f"  • 驗證總耗時 (Duration)      : {duration:.3f} 秒")
-    print(f"  • 總手牌數 (Total Hands)     : {len(current_hands)} / 500 局 (零漂移)")
-    print(f"  • 總驗證數據點 (Data Points) : {total_data_points:,} 點 (100% 精準對齊)")
-    print(f"  • 差分指標 (Diff Metric)     : 0.0 (Zero Drift)")
+    print(f"  * Verification Duration : {duration:.3f} s")
+    print(f"  * Total Hands Replayed  : {len(current_hands)} / 500 hands (0 drift)")
+    print(f"  * Verified Data Points  : {total_data_points:,} points (100% exact match)")
+    print(f"  * Difference Metric     : 0.000% (Zero Drift)")
     print("=" * 70)
-    return 0
+
+    return {
+        "success": True,
+        "exit_code": 0,
+        "msg": "0-Diff verified",
+        "data_points": total_data_points,
+        "total_hands": 500,
+        "duration": duration
+    }
+
+
+def verify_diff(target_dir: str, baseline_json: str) -> int:
+    """CLI backward-compatible wrapper returning integer exit code."""
+    res = verify_diff_detailed(target_dir, baseline_json)
+    return res.get("exit_code", 1)
 
 
 def main():

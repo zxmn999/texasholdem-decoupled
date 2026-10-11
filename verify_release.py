@@ -4,11 +4,13 @@ verify_release.py
 =================
 Automated Release Verification Gate for Decoupled TexasHoldEm Engine.
 
-Strict Invariants Enforced:
+Strict Invariants Enforced (Fail-Closed Architecture):
 1. Anti-Tamper: SHA-256 integrity verification of all 16 test files against test_fingerprints.json
+   - Explicitly rejects empty, truncated, or tampered fingerprint registries.
 2. AST Safeguards: AST scan for mutable defaults and bare except handlers
 3. Monolith Shrinkage: Physical LOC gate asserting core game.py < 400 lines (down from 1,375 lines)
-4. Dynamic 0-Diff: Full dynamic replay of 500 hands (53,905 state points) against golden baseline
+4. Dynamic 0-Diff: Full dynamic replay of exactly 500 hands against golden baseline
+   - Explicitly validates baseline structure, exact 500-hand counts, and >= 50,000 state points.
 """
 
 import os
@@ -22,6 +24,26 @@ from typing import Dict, List, Any
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
+
+# Strict registry of expected test suites
+EXPECTED_TEST_FILES = {
+    "tests/conftest.py",
+    "tests/__init__.py",
+    "tests/card/conftest.py",
+    "tests/card/test_card.py",
+    "tests/card/test_deck.py",
+    "tests/card/__init__.py",
+    "tests/evaluator/conftest.py",
+    "tests/evaluator/test_evaluator.py",
+    "tests/evaluator/__init__.py",
+    "tests/game/conftest.py",
+    "tests/game/test_game.py",
+    "tests/game/test_history.py",
+    "tests/game/__init__.py",
+    "tests/gui/conftest.py",
+    "tests/gui/text_gui.py",
+    "tests/gui/__init__.py"
+}
 
 
 def compute_file_sha256(filepath: str) -> str:
@@ -43,8 +65,31 @@ def check_test_fingerprints(project_root: str) -> Dict[str, Any]:
             "violations": ["Missing required test_fingerprints.json baseline"]
         }
     
-    with open(fp_path, "r", encoding="utf-8") as f:
-        baseline_hashes = json.load(f)
+    try:
+        with open(fp_path, "r", encoding="utf-8") as f:
+            baseline_hashes = json.load(f)
+    except Exception as e:
+        return {
+            "status": "FAIL",
+            "msg": f"Failed to parse test_fingerprints.json: {e}",
+            "violations": [str(e)]
+        }
+
+    if not isinstance(baseline_hashes, dict):
+        return {
+            "status": "FAIL",
+            "msg": "test_fingerprints.json must be a JSON object mapping file paths to SHA-256 hashes",
+            "violations": ["Invalid JSON format in test_fingerprints.json"]
+        }
+
+    # Strict invariant: Exactly 16 test files must be present (rejects empty {} or partial lists)
+    missing_from_registry = EXPECTED_TEST_FILES - set(baseline_hashes.keys())
+    if missing_from_registry:
+        return {
+            "status": "FAIL",
+            "msg": f"Fingerprint registry incomplete! Missing {len(missing_from_registry)} expected test files.",
+            "violations": [f"Missing from registry: {f}" for f in sorted(missing_from_registry)]
+        }
 
     violations = []
     checked_count = 0
@@ -52,7 +97,7 @@ def check_test_fingerprints(project_root: str) -> Dict[str, Any]:
         checked_count += 1
         full_path = os.path.join(project_root, rel_path)
         if not os.path.exists(full_path):
-            violations.append(f"Test file missing: {rel_path}")
+            violations.append(f"Test file missing on disk: {rel_path}")
             continue
         cur_hash = compute_file_sha256(full_path)
         if cur_hash != expected_hash:
@@ -131,24 +176,28 @@ def check_zero_diff(project_root: str, golden_dataset: str) -> Dict[str, Any]:
             "violations": [f"Missing required baseline dataset: {golden_dataset}"]
         }
     
-    # Dynamically import and execute the dynamic differential verification harness
     try:
         sys.path.insert(0, project_root)
         import harness_baseline_500
         
-        ret_code = harness_baseline_500.verify_diff(project_root, golden_dataset)
-        if ret_code != 0:
+        # Execute actual 500-hand replay and deep bitwise diff comparison
+        res = harness_baseline_500.verify_diff_detailed(project_root, golden_dataset)
+        if not res.get("success", False):
             return {
                 "status": "FAIL",
                 "diff": 1.0,
-                "msg": "Dynamic differential 0-Diff FAILED! Mismatches detected against golden baseline.",
-                "violations": ["Dynamic game state diverged from golden dataset"]
+                "msg": res.get("msg", "Dynamic differential 0-Diff FAILED!"),
+                "violations": [res.get("msg", "Game state diverged from golden baseline")]
             }
+        
+        data_points = res.get("data_points", 0)
         return {
             "status": "PASS",
             "diff": 0.0,
-            "data_points": 53905,
-            "msg": "Dynamic differential 0-Diff verified (Diff == 0.0 across 53,905 state points).",
+            "data_points": data_points,
+            "total_hands": res.get("total_hands", 500),
+            "duration": res.get("duration", 0.0),
+            "msg": f"Dynamic differential 0-Diff verified (Diff == 0.0 across {data_points:,} state points).",
             "violations": []
         }
     except Exception as e:
@@ -204,7 +253,7 @@ def main():
             elif "checked_count" in res:
                 detail = f" (Verified {res['checked_count']} test suites unmodified)"
             elif "data_points" in res:
-                detail = f" (Replayed 500 hands, 53,905 state points, Diff == 0.0)"
+                detail = f" (Replayed {res.get('total_hands', 500)} hands, {res['data_points']:,} state points, Diff == 0.0)"
             print(f"  [PASS] [{code:<24}] {name}: PASS{detail}")
     print("-" * 76)
 
