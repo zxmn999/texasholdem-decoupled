@@ -1,0 +1,9 @@
+{
+  "duration_seconds": 0.115,
+  "total_hands": 500,
+  "total_data_points": 53927,
+  "file_size_bytes": 711547,
+  "sha256": "967a66919d579633e6cffe26df4df5dc1665a0e5ac81a9f03c9b394c58f07941",
+  "target_dir": "texasholdem",
+  "upstream_repo": "https://github.com/SirRender00/texasholdem"
+}

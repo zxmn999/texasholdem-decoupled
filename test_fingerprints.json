@@ -1,0 +1,18 @@
+{
+  "tests/conftest.py": "43b7ab53830a17fff93d1bcce40d466188e1a26b0ce8a0772876162a2d233f3c",
+  "tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "tests/card/conftest.py": "49d11036ea7d22779e64a4e03a2fd7f1f261675db4a09ced3c40c754a8e4b04a",
+  "tests/card/test_card.py": "cef89de7e2771ab526900546b51bda6787312cee02afb612fbfe8c6ec32d40a7",
+  "tests/card/test_deck.py": "0fa69e4b7683e1bdc3213357d6c54cd81d96b22f0ad98ba5a3f6d3061e1268c8",
+  "tests/card/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "tests/evaluator/conftest.py": "98d59fbf55cc989316833f7b926ad381f0fdb025cad5899f478e086969579f9f",
+  "tests/evaluator/test_evaluator.py": "83991e226b48f8632c52bf7b67fa09b9ec04cdd2157e6cc613d64f0568ced9d8",
+  "tests/evaluator/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "tests/game/conftest.py": "7ac1eb42666b45e20dd67cc50c040887bd5ec948ac8960c7a236507085e81caa",
+  "tests/game/test_game.py": "93424646e379a2dae76468bbc3f1777fea1d1f028f95882b85a9dce5932a978d",
+  "tests/game/test_history.py": "4f630f2d675360989aaa766f957ab0db6f655f88812521a45a82d9c5ac3efe8c",
+  "tests/game/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "tests/gui/conftest.py": "f5433523e11052bbe750af24e3b4de301c048e894aba307871d4cb0786f570e0",
+  "tests/gui/text_gui.py": "304d86e1c90c804fbea192705c7aa466c909fd6527d3a453174cf6058730f277",
+  "tests/gui/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}
