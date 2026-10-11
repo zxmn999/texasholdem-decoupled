@@ -3,7 +3,7 @@
 > **文件版本**：1.0.0 (TITAN Forensic Governance Specification)  
 > **編制機關**：Clean-Room Verification Architecture Team  
 > **適用專案**：`TexasHoldEm` (Fast Python Texas Hold'em Poker Engine)  
-> **工作區路徑**：`C:/ALL_PROJECT/WORK`  
+> **工作區模式**：Clean-Room Independent Environment  
 > **發布日期**：2026-10-11  
 
 ---
@@ -60,6 +60,18 @@
 
 ---
 
+### 【案例 4：Gate 2 測試清單掏空 (Fail-Open) 白箱漏洞與封堵】
+* **發現來源**：Web ChatGPT 二次審查針對開源版本代碼提出之白箱靜態審查
+* **攔截時間**：`2026-10-11T12:30:00Z`
+* **病灶還原**：
+  原始 Gate 2 實作僅以 `for path, exp_sha in expected.items():` 遍歷指紋字典。若攻擊者透過注入清空 `.agents/test_fingerprints.json` 寫入 `{}`，字典長度為 0 導致迴圈完全不執行，形成「0 項比對、0 項不符、判定放行」的嚴重 Fail-Open 邏輯盲區。
+* **剛性封堵方案**：
+  引入不可動態竄改的法定 16 套測試白名單 `CANONICAL_TEST_FILES`。前置強斷言 `len(expected) >= 16`，並強制比對 16 套法定測試檔案必須全部存在且 SHA-256 吻合。若指紋清單遭掏空或截斷，直接判定 `Fail-Open Security Violation` 並以 Exit Code 1 剛性中斷。
+* **紅隊對抗實測**：
+  已納入 `run_redteam_attacks.py` 之 ATK-05，並以真實作業系統子進程（`subprocess.run`）現場執行攻擊，物理觀測 OS Exit Code 1 剛性阻斷。
+
+---
+
 ## 🛡️ 二、 工程治理防禦邊界 (Defense Boundaries)
 
 本套門禁系統在嚴謹的數學與工程定義下運作，其保證範疇與明確非目標如下：
@@ -91,8 +103,11 @@
    - 本系統已在標準 CPython 3.10 / 3.11 / 3.12 環境下完成剛性驗證。若於非標準直譯器（如 Jython、IronPython 或 MicroPython）上運行，由於記憶體垃圾回收機制不同，不保證所有效能指標 100% 等同。
 4. **GTO 賽局策略最優性 (Game-Theoretic Optimality)**：
    - 本專案職責為「規則引擎與狀態機之結構微創解耦」，並非開發「德州撲克 AI 必勝演算法」。系統保證規則演算與邊池切分之數學精確性，但不為外部 AI 代理人之決策盈虧負責。
+5. **非對稱公私鑰數位簽章 (Asymmetric Public-Key Signatures)**：
+   - 驗收收據產生的 `DELIVERY-SEAL-...` 為綁定當次執行結果、狀態數值與時間戳記之「確定性 SHA-256 驗收收據摘要指紋（Deterministic Receipt Digest）」，其數學目標為驗收成果防篡改與物理對帳，非非對稱私鑰之數位憑證簽署。
 
 ---
 
 ## 結論
 本清冊與邊界定義代表 TITAN 體系對軟體工程客觀真理的承諾：**不浮誇、不隱瞞失敗、嚴守物理防線**。
+
