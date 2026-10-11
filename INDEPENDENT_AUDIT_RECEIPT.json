@@ -1,0 +1,32 @@
+{
+  "report_title": "TITAN Clean-Room Independent Verification Receipt",
+  "generated_at_utc": "2026-10-11T12:38:17.078015+00:00",
+  "execution_time_seconds": 0.238,
+  "target_codebase": "C:\\ALL_PROJECT\\WORK",
+  "baseline_dataset": "C:\\ALL_PROJECT\\WORK\\metrics\\baseline_500_hands.json",
+  "all_gates_passed": true,
+  "delivery_seal": "DELIVERY-SEAL-CEC0B12BFC2760B5",
+  "gates": {
+    "gate_1_ast_guard": {
+      "status": "PASS",
+      "loc": 394,
+      "ast_nodes": 2078,
+      "violations": []
+    },
+    "gate_2_sha256_lock": {
+      "status": "PASS",
+      "total_files": 16,
+      "matched_files": 16,
+      "violations": []
+    },
+    "gate_3_zero_diff": {
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 0.227,
+      "hands_verified": 500,
+      "data_points_verified": 53905,
+      "diff_metric": 0.0,
+      "violations": []
+    }
+  }
+}

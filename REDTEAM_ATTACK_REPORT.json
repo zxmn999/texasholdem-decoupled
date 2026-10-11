@@ -1,0 +1,77 @@
+{
+  "report_title": "TITAN Adversarial Red-Team Injection Report",
+  "timestamp_utc": "2026-10-11T12:41:56.986075+00:00",
+  "total_attacks": 5,
+  "blocked_attacks": 5,
+  "defense_integrity": "100% FAIL_CLOSED_VERIFIED",
+  "duration_seconds": 0.474,
+  "attacks": [
+    {
+      "attack_id": "ATK-01",
+      "name": "Assertion Tampering (老測試斷言篡改攻擊)",
+      "target": "tests/game/test_game.py",
+      "payload": "Appended illegal assertion bypass comment/code to alter file hash",
+      "gate_triggered": "Gate 2 (SHA-256 Lock)",
+      "gate_status": "FAIL",
+      "violations_detected": [
+        "Fingerprint mismatch: tests/game/test_game.py (actual 0e5423ed42 != expected 93424646e3)"
+      ],
+      "blocked": true,
+      "exit_code_simulated": 1
+    },
+    {
+      "attack_id": "ATK-02",
+      "name": "AST Limit Bypass (單檔 400 行卡規突破攻擊)",
+      "target": "texasholdem/game/game.py",
+      "payload": "Inflated physical lines from 394 to 416 lines (> 400 limit)",
+      "gate_triggered": "Gate 1 (AST Monolith Shrinkage)",
+      "gate_status": "FAIL",
+      "violations_detected": [
+        "Physical LOC violation: 416 lines >= 400 line hard limit"
+      ],
+      "blocked": true,
+      "exit_code_simulated": 1
+    },
+    {
+      "attack_id": "ATK-03",
+      "name": "Silent Exception Swallowing (靜態例外吞噬作弊攻擊)",
+      "target": "texasholdem/game/game.py",
+      "payload": "Injected 'try...except Exception: pass' anti-pattern block",
+      "gate_triggered": "Gate 1 (AST Safe-Rails AXIOM-F2)",
+      "gate_status": "FAIL",
+      "violations_detected": [
+        "Physical LOC violation: 400 lines >= 400 line hard limit",
+        "Line 399: Swallowed 'except Exception: pass' detected"
+      ],
+      "blocked": true,
+      "exit_code_simulated": 1
+    },
+    {
+      "attack_id": "ATK-04",
+      "name": "State Drift Tampering (第 342 局微量籌碼漂移攻擊)",
+      "target": "Hand #342 in metrics/baseline_500_hands.json",
+      "payload": "Modified Hand #342 player chips by +1 chip (subtle state divergence)",
+      "gate_triggered": "Gate 3 (0-Diff Dynamic Verification)",
+      "gate_status": "FAIL",
+      "violations_detected": [
+        "Dynamic state discrepancies detected in 500-hand replay!"
+      ],
+      "blocked": true,
+      "exit_code_simulated": 1
+    },
+    {
+      "attack_id": "ATK-05",
+      "name": "Spec Conflict Injection (互斥規格注入與未核准攻擊)",
+      "target": "state_bus.json / Work Ticket Specification",
+      "payload": "Incompatible constraints: Preserving 37 API signatures cannot be achieved under 250 LOC without breaking facade delegation.",
+      "gate_triggered": "Fail-Closed Supervisor / Spec Validation Gate",
+      "gate_status": "BLOCKED",
+      "violations_detected": [
+        "ERR_SPEC_UNAPPROVED: Ticket missing [SPEC_APPROVED_FOR_DEV] sign-off.",
+        "ERR_SPEC_CONFLICT: Invariant limit 250 contradicts minimum facade boundary (350 LOC)."
+      ],
+      "blocked": true,
+      "exit_code_simulated": 1
+    }
+  ]
+}
